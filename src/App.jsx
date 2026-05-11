@@ -525,29 +525,65 @@ export default function App(){
               </div>);
             })}
           </div>
-          <div style={{overflowY:"auto",maxHeight:"58vh"}}>
-            {HOURS.map(h=>(
-              <div key={h} style={{display:"flex",borderBottom:"1px solid #F8F2EC"}}>
-                <div style={{width:50,flexShrink:0,padding:"4px 8px",background:"#FAF5F0",display:"flex",alignItems:"flex-start",justifyContent:"flex-end",borderRight:"1px solid #F0E8E0"}}>
-                  <span style={{fontSize:10,color:"#C0AFA0",fontWeight:500,paddingTop:4}}>{String(h).padStart(2,"0")}h</span>
+          {(()=>{
+            const CELL_H=54; // px per hour
+            const START_H=HOURS[0];
+            const TOTAL_H=HOURS.length;
+            return(
+              <div style={{overflowY:"auto",maxHeight:"58vh",position:"relative"}}>
+                {/* Hour lines */}
+                <div style={{display:"flex",flexDirection:"column"}}>
+                  {HOURS.map(h=>(
+                    <div key={h} style={{display:"flex",height:CELL_H,borderBottom:"1px solid #F8F2EC",flexShrink:0}}>
+                      <div style={{width:50,flexShrink:0,padding:"4px 8px",background:"#FAF5F0",display:"flex",alignItems:"flex-start",justifyContent:"flex-end",borderRight:"1px solid #F0E8E0"}}>
+                        <span style={{fontSize:10,color:"#C0AFA0",fontWeight:500,paddingTop:4}}>{String(h).padStart(2,"0")}h</span>
+                      </div>
+                      {wkDays.map((d,di)=>{
+                        const ds=toDateStr(d); const isT=ds===todayStr;
+                        return(<div key={di} className="week-col" style={{background:isT?"#FDFAF6":"white",cursor:"pointer"}}
+                          onClick={()=>openNew(ds,`${String(h).padStart(2,"0")}:00`)}/>);
+                      })}
+                    </div>
+                  ))}
                 </div>
-                {wkDays.map((d,di)=>{
-                  const ds=toDateStr(d); const isT=ds===todayStr;
-                  const se=evForDate(ds).filter(e=>!e.allDay&&e.time&&parseInt(e.time.split(":")[0])===h);
-                  return(<div key={di} className="week-col hcell" style={{background:isT?"#FDFAF6":"white"}} onClick={()=>openNew(ds,`${String(h).padStart(2,"0")}:00`)}>
-                    {se.map(e=>{
-                      const acc=catMap[e.type]?.bg||BRAND;
-                      return(<div key={e.id} className="wev" style={{background:hl(acc),borderLeft:`2.5px solid ${acc}`}} onClick={x=>{x.stopPropagation();openEdit(e);}}>
-                        <div style={{fontSize:10,color:acc,fontWeight:600}}>{fmtTime(e.time)}{e.endTime&&` → ${fmtTime(e.endTime)}`}</div>
-                        <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.title}</div>
-                        {e.contacts?.[0]?.name&&<div style={{fontSize:9,color:"#9A8878",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.contacts[0].name}</div>}
-                      </div>);
-                    })}
-                  </div>);
-                })}
+                {/* Overlay events absolutely positioned */}
+                <div style={{position:"absolute",top:0,left:50,right:0,bottom:0,display:"flex",pointerEvents:"none"}}>
+                  {wkDays.map((d,di)=>{
+                    const ds=toDateStr(d);
+                    const dayEvs=evForDate(ds).filter(e=>!e.allDay&&e.time);
+                    const colW=`${100/7}%`;
+                    return(
+                      <div key={di} style={{width:colW,position:"relative",flexShrink:0}}>
+                        {dayEvs.map(e=>{
+                          const acc=catMap[e.type]?.bg||BRAND;
+                          const [sh,sm]=e.time.split(":").map(Number);
+                          const startMins=(sh-START_H)*60+sm;
+                          const endMins=e.endTime
+                            ?((Number(e.endTime.split(":")[0])-START_H)*60+Number(e.endTime.split(":")[1]))
+                            :startMins+60;
+                          const topPx=(startMins/60)*CELL_H;
+                          const heightPx=Math.max(((endMins-startMins)/60)*CELL_H,22);
+                          return(
+                            <div key={e.id} onClick={x=>{x.stopPropagation();openEdit(e);}}
+                              style={{position:"absolute",top:topPx,left:3,right:3,height:heightPx,
+                                background:hl(acc),borderLeft:`2.5px solid ${acc}`,borderRadius:5,
+                                padding:"3px 6px",overflow:"hidden",cursor:"pointer",pointerEvents:"all",
+                                transition:"opacity .15s",boxShadow:"0 1px 3px rgba(0,0,0,.08)"}}
+                              onMouseEnter={x=>x.currentTarget.style.opacity=".85"}
+                              onMouseLeave={x=>x.currentTarget.style.opacity="1"}>
+                              <div style={{fontSize:10,color:acc,fontWeight:600,lineHeight:1.2}}>{fmtTime(e.time)}{e.endTime&&` → ${fmtTime(e.endTime)}`}</div>
+                              <div style={{fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.3}}>{e.title}</div>
+                              {heightPx>38&&e.contacts?.[0]?.name&&<div style={{fontSize:9,color:"#9A8878",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.contacts[0].name}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
       </div>
     );
