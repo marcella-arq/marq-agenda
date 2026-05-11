@@ -61,6 +61,29 @@ function fmtTime(t){
   const [h,min]=t.split(":");
   return min==="00"?`${parseInt(h)}h`:`${parseInt(h)}h${min}`;
 }
+
+function getCalendarLink(title, date, time, endTime, notes){
+  // Generates an .ics data URI that iOS opens in Calendar app
+  const pad = n => String(n).padStart(2,"0");
+  const toICS = (ds, ts) => {
+    const d = new Date(`${ds}T${ts||"00:00"}:00`);
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  };
+  const start = toICS(date, time||"09:00");
+  const end   = toICS(date, endTime||time||"10:00");
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "BEGIN:VEVENT",
+    `SUMMARY:${(title||"").replace(/,/g,"\,")}`,
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `DESCRIPTION:${(notes||"").replace(/,/g,"\,")}`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+  return "data:text/calendar;charset=utf8," + encodeURIComponent(ics);
+}
 function getWhatsAppLink(phone,name,title,date,time,template){
   const dateStr=fmtDate(date);
   const timeStr=fmtTime(time);
@@ -256,15 +279,18 @@ export default function AgendaApp(){
               <button onClick={()=>deleteEvent(ev.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#9E4A4A",padding:"2px"}}>🗑</button>
             </div>
           </div>
-          {ev.contacts&&ev.contacts.filter(c=>c.phone).length>0&&(
-            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:7}}>
-              {ev.contacts.filter(c=>c.phone).map((c,i)=>(
-                <a key={i} href={getWhatsAppLink(c.phone,c.name,ev.title,ev.date,ev.time,ev.wappTemplate)} target="_blank" rel="noopener noreferrer" className="wapp-btn">
-                  Lembrar {c.name||"contato"}
-                </a>
-              ))}
-            </div>
-          )}
+          <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:7}}>
+            {ev.contacts&&ev.contacts.filter(c=>c.phone).map((c,i)=>(
+              <a key={i} href={getWhatsAppLink(c.phone,c.name,ev.title,ev.date,ev.time,ev.wappTemplate)} target="_blank" rel="noopener noreferrer" className="wapp-btn">
+                Lembrar {c.name||"contato"}
+              </a>
+            ))}
+            {ev.date&&(
+              <a href={getCalendarLink(ev.title,ev.date,ev.time,ev.endTime,ev.notes)} download={`${ev.title||"evento"}.ics`} style={{display:"inline-flex",alignItems:"center",gap:4,background:"#5C7D8A",color:"white",borderRadius:5,padding:"4px 10px",fontSize:10,fontFamily:"Inter,sans-serif",fontWeight:500,textDecoration:"none"}}>
+                Adicionar ao Calendario
+              </a>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -500,6 +526,7 @@ export default function AgendaApp(){
                     </div>
                     <div style={{display:"flex",gap:7,alignItems:"center",flexShrink:0}}>
                       {ev.contacts&&ev.contacts.filter(c=>c.phone).map((c,i)=><a key={i} href={getWhatsAppLink(c.phone,c.name,ev.title,ev.date,ev.time,ev.wappTemplate)} target="_blank" rel="noopener noreferrer" className="wapp-btn">WApp {c.name||''}</a>)}
+                      {ev.date&&<a href={getCalendarLink(ev.title,ev.date,ev.time,ev.endTime,ev.notes)} download={`${ev.title||"evento"}.ics`} style={{display:"inline-flex",alignItems:"center",gap:4,background:"#5C7D8A",color:"white",borderRadius:5,padding:"4px 10px",fontSize:10,fontFamily:"Inter,sans-serif",fontWeight:500,textDecoration:"none"}}>+ Calendario</a>}
                       <button onClick={()=>openEdit(ev)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#9A8878"}}>✏️</button>
                       <button onClick={()=>deleteEvent(ev.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#9E4A4A"}}>🗑</button>
                     </div>
