@@ -188,6 +188,13 @@ export default function App(){
   useEffect(()=>save("mp_goals",goals),[goals]);
   useEffect(()=>save("mp_tasks",tasks),[tasks]);
   useEffect(()=>save("mp_cats",cats),[cats]);
+  useEffect(()=>save("mp_clients",clients),[clients]);
+  function saveCli(){
+    if(!newCli.name.trim()) return;
+    if(editCli) setClients(clients.map(c=>c.id===editCli.id?{...newCli,id:editCli.id}:c));
+    else setClients([...clients,{...newCli,id:Date.now()}]);
+    setShowCliModal(false); setEditCli(null); setNewCli({name:"",phone:"",email:"",notes:""});
+  }
 
   // reminder
   useEffect(()=>{
@@ -287,8 +294,8 @@ export default function App(){
     const accent=catMap[e.type]?.bg||BRAND;
     return(
       <div style={{padding:"10px 12px",borderRadius:9,marginBottom:7,background:hl(accent),display:"flex",gap:9,transition:"transform .15s"}}
-        onMouseEnter={x=>x.currentTarget.style.transform="translateX(2px)"}
-        onMouseLeave={x=>x.currentTarget.style.transform="none"}>
+        onMouseEnter={x=>{x.currentTarget.style.transform="translateX(2px)";}}
+        onMouseLeave={x=>{x.currentTarget.style.transform="none";}}>
         <div style={{width:3,borderRadius:2,background:accent,flexShrink:0,alignSelf:"stretch"}}/>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
@@ -541,7 +548,7 @@ export default function App(){
                 {allDayEvs.map(e=>{
                   const acc=catMap[e.type]?.bg||BRAND;
                   return(<div key={e.id} onClick={x=>{x.stopPropagation();openEdit(e);}}
-                    style={{fontSize:9,fontWeight:500,padding:"1px 4px",borderRadius:3,background:hexToLight(acc),color:acc,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",borderLeft:`2px solid ${acc}`,marginTop:2,cursor:"pointer",textAlign:"left"}}>
+                    style={{fontSize:9,fontWeight:500,padding:"1px 4px",borderRadius:3,background:hl(acc),color:acc,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",borderLeft:`2px solid ${acc}`,marginTop:2,cursor:"pointer",textAlign:"left"}}>
                     ◆ {e.title}
                   </div>);
                 })}
@@ -881,10 +888,3 @@ export default function App(){
     </div>
   );
 }
-  useEffect(()=>save("mp_clients",clients),[clients]);
-  function saveCli(){
-    if(!newCli.name.trim()) return;
-    if(editCli) setClients(clients.map(c=>c.id===editCli.id?{...newCli,id:editCli.id}:c));
-    else setClients([...clients,{...newCli,id:Date.now()}]);
-    setShowCliModal(false); setEditCli(null); setNewCli({name:"",phone:"",email:"",notes:""});
-  }
