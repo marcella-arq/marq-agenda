@@ -768,11 +768,12 @@ export default function App(){
       </div>
 
       <div className="content-wrap">
-      {/* Views */
+      {/* Views */}
       {view==="mensal"     &&<Mensal/>}
       {view==="semanal"    &&<Semanal/>}
       {view==="lista"      &&<Lista/>}
       {view==="metas"      &&<Metas/>}
+      {view==="clientes"   &&<ClientesView/>}
       {view==="categorias" &&<Categorias/>}
 
       </div>
