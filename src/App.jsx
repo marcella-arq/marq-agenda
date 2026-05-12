@@ -165,6 +165,10 @@ export default function App(){
   const [goals,setGoals]       = useState(()=>load("mp_goals",SAMPLE_GOALS));
   const [tasks,setTasks]       = useState(()=>load("mp_tasks",SAMPLE_TASKS));
   const [cats,setCats]         = useState(()=>load("mp_cats",DEFAULT_CATS));
+  const [clients,setClients]       = useState(()=>load("mp_clients",[]));
+  const [showCliModal,setShowCliModal] = useState(false);
+  const [editCli,setEditCli]       = useState(null);
+  const [newCli,setNewCli]         = useState({name:"",phone:"",email:"",notes:""});
   const [reminder,setReminder] = useState(null);
 
   const [showEv,setShowEv]   = useState(false);
@@ -358,6 +362,13 @@ export default function App(){
 
           <div>
             <label className="lbl">Contatos</label>
+            {clients.length>0&&(
+              <select className="sel" style={{fontSize:12,marginBottom:8}} defaultValue=""
+                onChange={x=>{const cli=clients.find(cl=>cl.id===+x.target.value);if(!cli)return;const cs=[...ev.contacts];cs[0]={name:cli.name,phone:cli.phone,email:cli.email};setEv({...ev,contacts:cs});}}>
+                <option value="">Selecionar do cadastro de clientes...</option>
+                {clients.map(cl=><option key={cl.id} value={cl.id}>{cl.name}</option>)}
+              </select>
+            )}
             {ev.contacts.map((c,i)=>(
               <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:7,marginBottom:8,alignItems:"center"}}>
                 <input className="fi" value={c.name}  onChange={x=>{const cs=[...ev.contacts];cs[i]={...cs[i],name:x.target.value};setEv({...ev,contacts:cs});}} placeholder="Nome"/>
@@ -514,76 +525,52 @@ export default function App(){
           <button className="bg" onClick={()=>setWkStart(getWeekStart(today))}>Hoje</button>
         </div>
         <div className="card" style={{padding:0,overflow:"hidden"}}>
+          {/* All-day events row */}
           <div style={{display:"flex",borderBottom:"2px solid #F0E8E0"}}>
-            <div style={{width:50,flexShrink:0,background:"#FAF5F0"}}/>
+            <div style={{width:50,flexShrink:0,background:"#FAF5F0",borderRight:"1px solid #F0E8E0",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{fontSize:8,color:"#C0AFA0",writingMode:"vertical-rl",textTransform:"uppercase",letterSpacing:".06em"}}>dia todo</span>
+            </div>
             {wkDays.map((d,i)=>{
-              const ds=toDateStr(d); const isT=ds===todayStr; const cnt=evForDate(ds).length;
-              return(<div key={i} className="week-col" style={{padding:"10px 6px",textAlign:"center",background:isT?"#FDF6F0":"white",cursor:"pointer"}} onClick={()=>openNew(ds)}>
+              const ds=toDateStr(d); const isT=ds===todayStr;
+              const allDayEvs=evForDate(ds).filter(e=>e.allDay);
+              const cnt=evForDate(ds).filter(e=>!e.allDay).length;
+              return(<div key={i} className="week-col" style={{padding:"6px 4px",textAlign:"center",background:isT?"#FDF6F0":"white",cursor:"pointer",minHeight:48}} onClick={()=>openNew(ds)}>
                 <div style={{fontSize:10,fontWeight:600,letterSpacing:".08em",textTransform:"uppercase",color:isT?BRAND:"#9A8878"}}>{DAYS_SHORT[d.getDay()]}</div>
-                <div style={{fontSize:20,fontWeight:isT?600:300,color:isT?BRAND:"#2C1A0E",lineHeight:1.2,marginTop:2}}>{d.getDate()}</div>
-                {cnt>0&&<div style={{fontSize:9,color:"#9A8878",marginTop:1}}>{cnt}ev</div>}
+                <div style={{fontSize:20,fontWeight:isT?600:300,color:isT?BRAND:"#2C1A0E",lineHeight:1.2,marginTop:1}}>{d.getDate()}</div>
+                {cnt>0&&<div style={{fontSize:8,color:"#9A8878"}}>{cnt}ev</div>}
+                {allDayEvs.map(e=>{
+                  const acc=catMap[e.type]?.bg||BRAND;
+                  return(<div key={e.id} onClick={x=>{x.stopPropagation();openEdit(e);}}
+                    style={{fontSize:9,fontWeight:500,padding:"1px 4px",borderRadius:3,background:hexToLight(acc),color:acc,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",borderLeft:`2px solid ${acc}`,marginTop:2,cursor:"pointer",textAlign:"left"}}>
+                    ◆ {e.title}
+                  </div>);
+                })}
               </div>);
             })}
           </div>
-          {(()=>{
-            const CELL_H=54; // px per hour
-            const START_H=HOURS[0];
-            const TOTAL_H=HOURS.length;
-            return(
-              <div style={{overflowY:"auto",maxHeight:"58vh",position:"relative"}}>
-                {/* Hour lines */}
-                <div style={{display:"flex",flexDirection:"column"}}>
-                  {HOURS.map(h=>(
-                    <div key={h} style={{display:"flex",height:CELL_H,borderBottom:"1px solid #F8F2EC",flexShrink:0}}>
-                      <div style={{width:50,flexShrink:0,padding:"4px 8px",background:"#FAF5F0",display:"flex",alignItems:"flex-start",justifyContent:"flex-end",borderRight:"1px solid #F0E8E0"}}>
-                        <span style={{fontSize:10,color:"#C0AFA0",fontWeight:500,paddingTop:4}}>{String(h).padStart(2,"0")}h</span>
-                      </div>
-                      {wkDays.map((d,di)=>{
-                        const ds=toDateStr(d); const isT=ds===todayStr;
-                        return(<div key={di} className="week-col" style={{background:isT?"#FDFAF6":"white",cursor:"pointer"}}
-                          onClick={()=>openNew(ds,`${String(h).padStart(2,"0")}:00`)}/>);
-                      })}
-                    </div>
-                  ))}
+          <div style={{overflowY:"auto",maxHeight:"58vh"}}>
+            {HOURS.map(h=>(
+              <div key={h} style={{display:"flex",borderBottom:"1px solid #F8F2EC"}}>
+                <div style={{width:50,flexShrink:0,padding:"4px 8px",background:"#FAF5F0",display:"flex",alignItems:"flex-start",justifyContent:"flex-end",borderRight:"1px solid #F0E8E0"}}>
+                  <span style={{fontSize:10,color:"#C0AFA0",fontWeight:500,paddingTop:4}}>{String(h).padStart(2,"0")}h</span>
                 </div>
-                {/* Overlay events absolutely positioned */}
-                <div style={{position:"absolute",top:0,left:50,right:0,bottom:0,display:"flex",pointerEvents:"none"}}>
-                  {wkDays.map((d,di)=>{
-                    const ds=toDateStr(d);
-                    const dayEvs=evForDate(ds).filter(e=>!e.allDay&&e.time);
-                    const colW=`${100/7}%`;
-                    return(
-                      <div key={di} style={{width:colW,position:"relative",flexShrink:0}}>
-                        {dayEvs.map(e=>{
-                          const acc=catMap[e.type]?.bg||BRAND;
-                          const [sh,sm]=e.time.split(":").map(Number);
-                          const startMins=(sh-START_H)*60+sm;
-                          const endMins=e.endTime
-                            ?((Number(e.endTime.split(":")[0])-START_H)*60+Number(e.endTime.split(":")[1]))
-                            :startMins+60;
-                          const topPx=(startMins/60)*CELL_H;
-                          const heightPx=Math.max(((endMins-startMins)/60)*CELL_H,22);
-                          return(
-                            <div key={e.id} onClick={x=>{x.stopPropagation();openEdit(e);}}
-                              style={{position:"absolute",top:topPx,left:3,right:3,height:heightPx,
-                                background:hl(acc),borderLeft:`2.5px solid ${acc}`,borderRadius:5,
-                                padding:"3px 6px",overflow:"hidden",cursor:"pointer",pointerEvents:"all",
-                                transition:"opacity .15s",boxShadow:"0 1px 3px rgba(0,0,0,.08)"}}
-                              onMouseEnter={x=>x.currentTarget.style.opacity=".85"}
-                              onMouseLeave={x=>x.currentTarget.style.opacity="1"}>
-                              <div style={{fontSize:10,color:acc,fontWeight:600,lineHeight:1.2}}>{fmtTime(e.time)}{e.endTime&&` → ${fmtTime(e.endTime)}`}</div>
-                              <div style={{fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.3}}>{e.title}</div>
-                              {heightPx>38&&e.contacts?.[0]?.name&&<div style={{fontSize:9,color:"#9A8878",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.contacts[0].name}</div>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
+                {wkDays.map((d,di)=>{
+                  const ds=toDateStr(d); const isT=ds===todayStr;
+                  const se=evForDate(ds).filter(e=>!e.allDay&&e.time&&parseInt(e.time.split(":")[0])===h);
+                  return(<div key={di} className="week-col hcell" style={{background:isT?"#FDFAF6":"white"}} onClick={()=>openNew(ds,`${String(h).padStart(2,"0")}:00`)}>
+                    {se.map(e=>{
+                      const acc=catMap[e.type]?.bg||BRAND;
+                      return(<div key={e.id} className="wev" style={{background:hl(acc),borderLeft:`2.5px solid ${acc}`}} onClick={x=>{x.stopPropagation();openEdit(e);}}>
+                        <div style={{fontSize:10,color:acc,fontWeight:600}}>{fmtTime(e.time)}{e.endTime&&` → ${fmtTime(e.endTime)}`}</div>
+                        <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.title}</div>
+                        {e.contacts?.[0]?.name&&<div style={{fontSize:9,color:"#9A8878",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.contacts[0].name}</div>}
+                      </div>);
+                    })}
+                  </div>);
+                })}
               </div>
-            );
-          })()}
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -687,6 +674,41 @@ export default function App(){
     </div>
   );
 
+
+  // ── CLIENTES ──
+  const ClientesView=()=>(
+    <div style={{maxWidth:580,margin:"0 auto",padding:"24px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div style={{fontSize:20,fontWeight:500,color:"#2C1A0E"}}>Clientes</div>
+        <button className="btn-primary" onClick={()=>{setEditCli(null);setNewCli({name:"",phone:"",email:"",notes:""});setShowCliModal(true);}}>+ Novo</button>
+      </div>
+      <div className="card">
+        {clients.length===0&&<div style={{fontSize:13,color:"#B8A898",textAlign:"center",padding:"20px 0"}}>Nenhum cliente cadastrado</div>}
+        {clients.map(c=>(
+          <div key={c.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"11px 0",borderBottom:"1px solid #F0E8E0"}}>
+            <div style={{width:36,height:36,borderRadius:"50%",background:"#F5EDE4",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <span style={{fontSize:15,fontWeight:600,color:BRAND}}>{c.name.charAt(0).toUpperCase()}</span>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:500}}>{c.name}</div>
+              {c.phone&&<div style={{fontSize:11,color:"#9A8878"}}>{c.phone}</div>}
+              {c.email&&<div style={{fontSize:11,color:"#9A8878"}}>{c.email}</div>}
+              {c.notes&&<div style={{fontSize:11,color:"#B8A898",fontStyle:"italic",marginTop:2}}>{c.notes}</div>}
+              <div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
+                {c.phone&&<a href={`https://wa.me/${c.phone.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,background:"#25D366",color:"white",borderRadius:5,padding:"3px 8px",fontSize:10,fontWeight:500,textDecoration:"none"}}>WhatsApp</a>}
+                {c.email&&<a href={`mailto:${c.email}`} style={{display:"inline-flex",alignItems:"center",gap:4,background:"#5C7D8A",color:"white",borderRadius:5,padding:"3px 8px",fontSize:10,fontWeight:500,textDecoration:"none"}}>Email</a>}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:4}}>
+              <button onClick={()=>{setEditCli(c);setNewCli({name:c.name,phone:c.phone,email:c.email,notes:c.notes||""});setShowCliModal(true);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#9A8878"}}>✏️</button>
+              <button onClick={()=>setClients(clients.filter(x=>x.id!==c.id))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#9E4A4A"}}>🗑</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   // ── CATEGORIAS ───────────────────────────────────────
   const Categorias=()=>(
     <div style={{maxWidth:560,margin:"0 auto",padding:"24px"}}>
@@ -737,7 +759,7 @@ export default function App(){
             </div>
           </div>
           <nav style={{display:"flex"}}>
-            {[["mensal","Mensal"],["semanal","Semanal"],["lista","Lista"],["metas","Metas & Tarefas"],["categorias","Categorias"]].map(([v,l])=>(
+            {[["mensal","Mensal"],["semanal","Semanal"],["lista","Lista"],["metas","Metas & Tarefas"],["clientes","Clientes"],["categorias","Cat."]].map(([v,l])=>(
               <button key={v} className={`nav-btn${view===v?" active":""}`} onClick={()=>setView(v)}>{l}</button>
             ))}
           </nav>
@@ -745,13 +767,15 @@ export default function App(){
         </div>
       </div>
 
-      {/* Views */}
+      <div className="content-wrap">
+      {/* Views */
       {view==="mensal"     &&<Mensal/>}
       {view==="semanal"    &&<Semanal/>}
       {view==="lista"      &&<Lista/>}
       {view==="metas"      &&<Metas/>}
       {view==="categorias" &&<Categorias/>}
 
+      </div>
       {/* Modals */}
       {showEv&&<EvModal/>}
 
@@ -822,6 +846,44 @@ export default function App(){
           </div>
         </div>
       )}
+
+      {/* Mobile nav */}
+      <div className="mob-nav">
+        {[["mensal","📅","Mensal"],["semanal","📆","Semanal"],["lista","📋","Lista"],["metas","🎯","Metas"],["clientes","👥","Clientes"]].map(([v,ic,l])=>(
+          <button key={v} className={`mnb${view===v?" active":""}`} onClick={()=>setView(v)}>
+            <span style={{fontSize:18}}>{ic}</span><span>{l}</span>
+          </button>
+        ))}
+        <button className="mnb" onClick={()=>openNew()} style={{color:BRAND}}>
+          <span style={{fontSize:22,lineHeight:1}}>＋</span>
+          <span style={{color:BRAND}}>Novo</span>
+        </button>
+      </div>
+
+      {showCliModal&&(
+        <div className="overlay" onClick={()=>setShowCliModal(false)}>
+          <div className="modal" onClick={x=>x.stopPropagation()} style={{maxWidth:420}}>
+            <div style={{fontSize:18,fontWeight:500,marginBottom:20}}>{editCli?"Editar":"Novo"} Cliente</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div><label className="lbl">Nome *</label><input className="fi" value={newCli.name} onChange={x=>setNewCli({...newCli,name:x.target.value})} placeholder="Nome completo"/></div>
+              <div><label className="lbl">WhatsApp</label><input className="fi" value={newCli.phone} onChange={x=>setNewCli({...newCli,phone:x.target.value})} placeholder="5511999990001"/></div>
+              <div><label className="lbl">Email</label><input className="fi" value={newCli.email} onChange={x=>setNewCli({...newCli,email:x.target.value})} placeholder="email@cliente.com"/></div>
+              <div><label className="lbl">Notas</label><textarea className="fi" value={newCli.notes} onChange={x=>setNewCli({...newCli,notes:x.target.value})} placeholder="Observações..."/></div>
+            </div>
+            <div style={{display:"flex",gap:10,marginTop:20}}>
+              <button className="btn-primary" style={{flex:1}} onClick={saveCli}>Salvar</button>
+              <button className="btn-outline" onClick={()=>{setShowCliModal(false);setEditCli(null);}}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+  useEffect(()=>save("mp_clients",clients),[clients]);
+  function saveCli(){
+    if(!newCli.name.trim()) return;
+    if(editCli) setClients(clients.map(c=>c.id===editCli.id?{...newCli,id:editCli.id}:c));
+    else setClients([...clients,{...newCli,id:Date.now()}]);
+    setShowCliModal(false); setEditCli(null); setNewCli({name:"",phone:"",email:"",notes:""});
+  }
